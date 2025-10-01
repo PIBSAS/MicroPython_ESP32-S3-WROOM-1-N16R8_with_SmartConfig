@@ -47,7 +47,7 @@ jobs:
        
     - name: Cache ESP-IDF and environment
       id: cache-esp
-      uses: actions/cache@v4.2.4
+      uses: actions/cache@v4.3.0
       with:
         path: |
           esp-idf
