@@ -8,7 +8,7 @@ on:
     tags:
      - 'v*'
   schedule:
-     - cron: '0 0 */14 * *'
+     - cron: '0 0 1 * *'
   
   workflow_dispatch:
 
@@ -19,7 +19,7 @@ jobs:
       IDF_CCACHE_ENABLE: 1
     steps:
     - name: Clone repo
-      uses: actions/checkout@v5.0.0
+      uses: actions/checkout@v6.0.1
 
     - name: Clone repo smartconfig by Walkline80
       run :  git clone https://gitee.com/walkline/micropython-smartconfig-cmodule.git smartconfig
@@ -36,7 +36,7 @@ jobs:
         echo "PYTHON_VER=${PYTHON_VER}" | tee -a "$GITHUB_OUTPUT"
       
     - name: Setup Python from ci.sh
-      uses: actions/setup-python@v6.0.0
+      uses: actions/setup-python@v6.1.0
       with:
         python-version: ${{ steps.idf_ver.outputs.PYTHON_VER }}
     
@@ -47,7 +47,7 @@ jobs:
        
     - name: Cache ESP-IDF and environment
       id: cache-esp
-      uses: actions/cache@v4.3.0
+      uses: actions/cache@v5.0.1
       with:
         path: |
           esp-idf
@@ -153,7 +153,7 @@ jobs:
         done
             
     - name: GH Release
-      uses: softprops/action-gh-release@v2.3.3
+      uses: softprops/action-gh-release@v2.5.0
       with:
         tag_name: ${{ env.TAG_NAME }}
         name: "MicroPython ESP32-S3-WROOM-1 N16R8 and MicroPython ESP32-S3-WROOM-1 N16R8 + Smartconfig Release version ${{ env.MPY_VERSION }} (Build ${{ env.TAG_NAME }})"
