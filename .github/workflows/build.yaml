@@ -44,10 +44,9 @@ jobs:
         cd micropython
         IDF_VER=$(yq '.env.IDF_NEWEST_VER' .github/workflows/ports_esp32.yml | tr -d '"')
         echo "IDF_VER=$IDF_VER" >> $GITHUB_OUTPUT
-     #   echo "PYTHON_VER=3.11" >> $GITHUB_OUTPUT
     
-    - name: Setup Python
-      uses: actions/setup-python@v6.2.0
+    #- name: Setup Python
+    #  uses: actions/setup-python@v6.2.0
       #with:
       #  python-version: ${{ steps.idf_ver.outputs.PYTHON_VER }}
     
