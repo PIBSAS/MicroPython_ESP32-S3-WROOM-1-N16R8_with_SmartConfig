@@ -57,7 +57,7 @@ jobs:
        
     - name: Cache ESP-IDF and environment
       id: cache-esp
-      uses: actions/cache@v5.0.4
+      uses: actions/cache@v5.0.5
       with:
         path: |
           esp-idf
@@ -164,7 +164,7 @@ jobs:
         done
             
     - name: GH Release
-      uses: softprops/action-gh-release@v2.6.1
+      uses: softprops/action-gh-release@v3.0.0
       with:
         tag_name: ${{ env.TAG_NAME }}
         name: "MicroPython ESP32-S3-WROOM-1 N16R8 and MicroPython ESP32-S3-WROOM-1 N16R8 + Smartconfig Release version ${{ env.MPY_VERSION }} (Build ${{ env.TAG_NAME }})"
@@ -260,7 +260,6 @@ jobs:
             - 0x10000 micropython.bin
             - Press PROGRAM after done, press RST button or Unplug the Board.
           ````
-          
           
         draft: false
         prerelease: false
