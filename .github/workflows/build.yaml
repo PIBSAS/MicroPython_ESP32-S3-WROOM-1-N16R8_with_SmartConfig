@@ -249,6 +249,18 @@ jobs:
           ````
           - Close the Terminal now you can activate the Python Virtual Enmvironment
           
+          - [ESPWebTool Flasher](https://esptool.spacehuhn.com/):
+          
+          ````bash
+          - Put in Bootloader. Choose the USB/JTAG port.
+          - ERASE button first.
+          - Let it only:
+            - 0x0 bootloader.bin
+            - 0x8000 partition-table.bin
+            - 0x10000 micropython.bin
+            - Press PROGRAM after done, press RST button or Unplug the Board.
+          ````
+          
           
         draft: false
         prerelease: false
