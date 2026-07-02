@@ -23,7 +23,7 @@ jobs:
       run :  git clone https://gitee.com/walkline/micropython-smartconfig-cmodule.git smartconfig
       
     - name: Clone Micropython
-      run: git clone --depth 1--recursive https://github.com/micropython/micropython.git
+      run: git clone --depth 1 --recursive https://github.com/micropython/micropython.git
 
     #- id: idf_ver
     #  name: Read ESP-IDF and Python version from tools/ci.sh
