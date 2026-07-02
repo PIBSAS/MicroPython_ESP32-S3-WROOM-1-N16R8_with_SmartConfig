@@ -1,4 +1,4 @@
-name: MicroPython for ESP32-S3-WROOM-1 N16R8 only and MicroPython ESP32-S3-WROOM-1 N16R8 + SmartConfig Module
+name: MicroPython for ESP32-S3-WROOM-1 N16R8 Octal SPIRAM only and MicroPython ESP32-S3-WROOM-1 N16R8 Octal SPIRAM + SmartConfig Module
 
 permissions:
   contents: write
@@ -15,17 +15,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      IDF_CCACHE_ENABLE: 1
     steps:
     - name: Clone repo
-      uses: actions/checkout@v6.0.2
+      uses: actions/checkout@v7
 
     - name: Clone repo smartconfig by Walkline80
       run :  git clone https://gitee.com/walkline/micropython-smartconfig-cmodule.git smartconfig
       
     - name: Clone Micropython
-      run: git clone --recurse-submodules https://github.com/micropython/micropython.git
+      run: git clone --depth 1--recursive https://github.com/micropython/micropython.git
 
     #- id: idf_ver
     #  name: Read ESP-IDF and Python version from tools/ci.sh
@@ -53,77 +51,21 @@ jobs:
     - name: Install dependencies
       run: |
        sudo apt update
-       sudo apt-get install -y git wget cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
-       
-    - name: Cache ESP-IDF and environment
-      id: cache-esp
-      uses: actions/cache@v5.0.5
-      with:
-        path: |
-          esp-idf
-          ~/.espressif
-        key: esp-full-${{ runner.os }}-${{ steps.idf_ver.outputs.IDF_VER }}
-        #key: esp-full-${{ runner.os }}-${{ steps.idf_ver.outputs.IDF_VER }}-${{ hashFiles('micropython/tools/ci.sh') }}
-        restore-keys: |
-          esp-full-${{ runner.os }}-${{ steps.idf_ver.outputs.IDF_VER }}-
+       sudo apt-get install -y git wget cmake ninja-build
+       pip3 install --upgrade pip
   
     - name: Setup ESP-IDF
       run: |
-        if [ ! -d "esp-idf" ]; then
-          git clone --depth 1 --branch ${{ steps.idf_ver.outputs.IDF_VER }} https://github.com/espressif/esp-idf.git
-          git -C esp-idf submodule update --init --recursive --depth=1
-        fi
-        
-        if [ ! -d "$HOME/.espressif/python_env" ]; then
-          echo "Instalando entorno virtual de ESP-IDF..."
-          ./esp-idf/install.sh
-        fi
+        git clone --depth 1 --branch ${{ steps.idf_ver.outputs.IDF_VER }} https://github.com/espressif/esp-idf.git
+        git -C esp-idf submodule update --init --recursive --depth=1     
+        echo "Instalando entorno virtual de ESP-IDF..."
+        ./esp-idf/install.sh
    
     - name: Set up environment
       run: |
         source esp-idf/export.sh
         echo "IDF_PATH=$GITHUB_WORKSPACE/esp-idf" >> $GITHUB_ENV
         idf.py --version
-
-    - name: Copy board configuration
-      run: |
-        cp -r ESP32_GENERIC_S3_N16R8 micropython/ports/esp32/boards/
-
-    - name: Copiar tabla de particiones personalizada
-      run: |
-        cp "$GITHUB_WORKSPACE/ESP32_GENERIC_S3_N16R8/partitions-16MiB.csv" "$GITHUB_WORKSPACE/micropython/ports/esp32/partitions-16MiB.csv"
-
-    - name: Compile MicroPython with SmartConfig
-      run: |
-        source esp-idf/export.sh
-        cd ${{ github.workspace }}/micropython
-        make -j$(nproc) -C mpy-cross
-        export IDF_TARGET=esp32s3
-        cd ports/esp32/
-        idf.py -D MICROPY_BOARD=ESP32_GENERIC_S3_N16R8 -D MICROPY_BOARD_DIR="$GITHUB_WORKSPACE/micropython/ports/esp32/boards/ESP32_GENERIC_S3_N16R8" -D USER_C_MODULES="$GITHUB_WORKSPACE/smartconfig/cmodules/micropython.cmake" -B build-ESP32_GENERIC_S3_N16R8 build
-
-    
-    - name: Move binaries MicroPython+SmartConfig
-      run: |
-        mkdir -p ./artifacts
-        cp micropython/ports/esp32/build-ESP32_GENERIC_S3_N16R8/micropython.bin ./artifacts/micropython_smart.bin || true
-        cp micropython/ports/esp32/build-ESP32_GENERIC_S3_N16R8/bootloader/bootloader.bin ./artifacts/bootloader_smart.bin || true
-        cp micropython/ports/esp32/build-ESP32_GENERIC_S3_N16R8/partition_table/partition-table.bin ./artifacts/partition-table_smart.bin || true
-
-    - name: Compile MicroPython only
-      run: |
-        source esp-idf/export.sh
-        cd ${{ github.workspace }}/micropython
-        make -j$(nproc) -C mpy-cross
-        export IDF_TARGET=esp32s3
-        cd ports/esp32/
-        idf.py -D MICROPY_BOARD=ESP32_GENERIC_S3_N16R8 -D MICROPY_BOARD_DIR="$GITHUB_WORKSPACE/micropython/ports/esp32/boards/ESP32_GENERIC_S3_N16R8" -B build-ESP32_GENERIC_S3_N16R8_no_smart build
-
-    - name: Move binaries MicroPython
-      run: |
-        cp micropython/ports/esp32/build-ESP32_GENERIC_S3_N16R8_no_smart/micropython.bin ./artifacts/micropython.bin || true
-        cp micropython/ports/esp32/build-ESP32_GENERIC_S3_N16R8_no_smart/bootloader/bootloader.bin ./artifacts/bootloader.bin || true
-        cp micropython/ports/esp32/build-ESP32_GENERIC_S3_N16R8_no_smart/partition_table/partition-table.bin ./artifacts/partition-table.bin || true
 
     - name: Get MicroPython Version from mpconfig.h
       run: |
@@ -141,6 +83,60 @@ jobs:
 
         echo "MPY_VERSION=$MPY_VERSION" >> $GITHUB_ENV
 
+    - name: Create git tag with version (if not exists)
+      run: |
+        cd micropython
+        TAG="v${{ env.MPY_VERSION }}"
+        if git rev-parse "$TAG" >/dev/null 2>&1; then
+          echo "El tag $TAG ya existe, omitiendo..."
+        else
+          git tag "$TAG"
+          echo "Tag creado: $TAG"
+        fi
+      
+    - name: Copy board configuration
+      if: false
+      run: |
+        cp -r ESP32_GENERIC_S3_N16R8 micropython/ports/esp32/boards/
+
+    - name: Copiar tabla de particiones personalizada
+      if: false
+      run: |
+        cp "$GITHUB_WORKSPACE/ESP32_GENERIC_S3_N16R8/partitions-16MiB.csv" "$GITHUB_WORKSPACE/micropython/ports/esp32/partitions-16MiB.csv"
+
+    - name: Compile MicroPython with SmartConfig
+      run: |
+        source esp-idf/export.sh
+        cd ${{ github.workspace }}/micropython
+        make -j$(nproc) -C mpy-cross
+        make -j$(nproc) -C ports/esp32 submodules
+        make -j$(nproc) -C ports/esp32 BOARD=ESP32_GENERIC_S3 BOARD_VARIANT=SPIRAM_OCT USER_C_MODULES="$GITHUB_WORKSPACE/smartconfig/cmodules/micropython.cmake"
+    
+    - name: Move binaries MicroPython + SmartConfig
+      run: |
+        mkdir -p ./artifacts
+        BUILD="micropython/ports/esp32/build-ESP32_GENERIC_S3-SPIRAM_OCT"
+        cp $BUILD/firmware.bin artifacts/firmware_smart.bin
+        cp $BUILD/micropython.bin ./artifacts/micropython_smart.bin || true
+        cp $BUILD/bootloader/bootloader.bin ./artifacts/bootloader_smart.bin || true
+        cp $BUILD/partition_table/partition-table.bin ./artifacts/partition-table_smart.bin || true
+
+    - name: Compile MicroPython only
+      run: |
+        source esp-idf/export.sh
+        cd ${{ github.workspace }}/micropython
+        make -j$(nproc) -C mpy-cross
+        make -j$(nproc) -C ports/esp32 submodules
+        make -j$(nproc) -C ports/esp32 BOARD=ESP32_GENERIC_S3 BOARD_VARIANT=SPIRAM_OCT
+
+    - name: Move binaries MicroPython
+      run: |
+        BUILD="micropython/ports/esp32/build-ESP32_GENERIC_S3-SPIRAM_OCT"
+        cp $BUILD/firmware.bin artifacts/
+        cp $BUILD/micropython.bin ./artifacts/micropython.bin || true
+        cp $BUILD/bootloader/bootloader.bin ./artifacts/bootloader.bin || true
+        cp $BUILD/partition_table/partition-table.bin ./artifacts/partition-table.bin || true
+
     - name: Generate Tag
       id: tag
       run: echo "TAG_NAME=release-$(date +'%Y%m%d-%H%M')" >> $GITHUB_ENV
@@ -148,9 +144,11 @@ jobs:
     - name: Verificar existencia de todos los binarios
       run: |
         REQUIRED_FILES=(
+          ./artifacts/firmware.bin
           ./artifacts/micropython.bin
           ./artifacts/bootloader.bin
           ./artifacts/partition-table.bin
+          ./artifacts/firmware_smart.bin
           ./artifacts/micropython_smart.bin
           ./artifacts/bootloader_smart.bin
           ./artifacts/partition-table_smart.bin
@@ -164,16 +162,17 @@ jobs:
         done
             
     - name: GH Release
-      uses: softprops/action-gh-release@v3.0.0
+      uses: softprops/action-gh-release@v3
       with:
         tag_name: ${{ env.TAG_NAME }}
-        name: "MicroPython ESP32-S3-WROOM-1 N16R8 and MicroPython ESP32-S3-WROOM-1 N16R8 + Smartconfig Release version ${{ env.MPY_VERSION }} (Build ${{ env.TAG_NAME }})"
+        name: "MicroPython ESP32-S3-WROOM-1 N16R8 Octal SPIRAM and MicroPython ESP32-S3-WROOM-1 N16R8 Octal SPIRAM + Smartconfig Release version ${{ env.MPY_VERSION }} (Build ${{ env.TAG_NAME }})"
         body: |
           Automated release for MicroPython with SmartConfig.
           - What we get here:
-             - ```micropython.bin, bootloader.bin and partition-table.bin are MicroPython itslef by default, without SmartConfig module.```
-             - ```micropython_smart.bin, bootloader_smart.bin and partition-table_smart.bin are MicroPython + SmartConfig module.```
-          
+             - ```firmware.bin, micropython.bin, bootloader.bin and partition-table.bin are MicroPython itslef by default, without SmartConfig module.```
+             - ```firmware_smart.bin,micropython_smart.bin, bootloader_smart.bin and partition-table_smart.bin are MicroPython + SmartConfig module.```
+            `firmware.bin` has the 3 binaries in just one file
+            
           # Instructions
           
           You need to have some dependencies pre-instaled in your OS:
@@ -183,75 +182,103 @@ jobs:
           
           ## Windows or Linux:
           Create Virtual Environment
-          ```bash
+          
+          ```python
           python -m venv esp-env
           ```
           
           ### On Windows activate Virtual Environment this way:
-          ```bash
+          
+          ```python
           .\esp-env\Scripts\activate
           ```
+          
           ### On Linux activate Virtual Environment this way:
+          
           ```bash
           source esp-env/bin/activate
           ```
           
           ### On Windows or Linux install esptool:
-          ```bash
+          
+          ```python
           pip install esptool
           ```
           
           ### Put ESP32-S3-WROOM-1 N16R8 in BOOTLOADER MODE:
           - With USB cable on USB, press BOOT button then RST button, release RST, then release BOOT button. Or unplug, press BOOT button meanwhile you plug in the usb cable to PC or SBC like a Raspberry Pi.
           - Alternative: Use Thonny IDE, plug your ESP32-S3-WROOM-1 N16R8, on Thonny Shell type:
-          ```bash
+          
+          ```python
           from machine import bootloader
           ```
+          
           Press ``Enter`` then type:
-          ```bash
+          
+          ```python
           bootloader()
           ```
+          
           Press ``Enter`` then just cose Thonny and go to Terminal with Virtual Environment activate.
           
           ### Erase Flash:
-          ```bash
+          
+          ```python
           python -m esptool --chip esp32s3 erase-flash
           ```
+          
           ### Then Flash:
           - Put 3 binaries in the same folder you are executing the steps, example Downloads folder, you need to be in that folder where are the binaries.
-          ```bash
-          python -m esptool --chip esp32s3 -b 460800 --before default-reset --after no-reset write-flash --flash-mode dio --flash-size 16MB --flash-freq 80m 0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 micropython.bin
+          
+          ```python
+          python -m esptool write-flash 0x0 bootloader.bin 0x8000 partition-table.bin 0x10000 micropython.bin
+          ```
+
+          - Or just `firmware.bin`:
+
+          ```python
+          python -m esptool write-flash 0x0 firmware.bin
           ```
           
           #### Step for MicroPython+SmartConfig:
           - Put 3 binaries in the same folder you are executing the steps, example Downloads folder, you need to be in that folder where are the binaries.
-          ```bash
-          python -m esptool --chip esp32s3 -b 460800 --before default-reset --after no-reset write-flash --flash-mode dio --flash-size 16MB --flash-freq 80m 0x0 bootloader_smart.bin 0x8000 partition-table_smart.bin 0x10000 micropython_smart.bin
+          
+          ```python
+          python -m esptool write-flash 0x0 bootloader_smart.bin 0x8000 partition-table_smart.bin 0x10000 micropython_smart.bin
           ```
 
+          - Or just `firmware_smart.bin`:
+
+          ```python
+          python -m esptool write-flash 0x0 firmware_smart.bin
+          ```
+          
           ### You can check from MicroPython Shell on Thonny with:
-          ```bash
+          
+          ```python
           help('modules')
           ```
+          
           The modules in MicroPython.
 
           ### NOTE IN WINDOWS:
           - If you get a PowerShell Scripts Policy Execution Exception that don't let you activate the Virtual Environment:
           
-          ````bash
+          ```powershell
           .\esp-env\Scripts\activate
-          ````
+          ```
           
           - Then open a Terminal like Administrator and type:
           
-          ````bash
+          ```powershell
           Set-ExecutionPolicy Unrestricted
-          ````
+          ```
+          
           - Close the Terminal now you can activate the Python Virtual Enmvironment
           
           - [ESPWebTool Flasher](https://esptool.spacehuhn.com/):
           
-          ````bash
+          ```bash
           - Put in Bootloader. Choose the USB/JTAG port.
           - ERASE button first.
           - Let it only:
@@ -259,7 +286,7 @@ jobs:
             - 0x8000 partition-table.bin
             - 0x10000 micropython.bin
             - Press PROGRAM after done, press RST button or Unplug the Board.
-          ````
+          ```
           
         draft: false
         prerelease: false
